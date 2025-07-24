@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>2025-08-01_やまがた海洋塾_飛島</title>
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<base target="_blank">
+<link rel="stylesheet" type="text/css" href="../Qgis2threejs/Qgis2threejs.css">
+<style type="text/css">
+#popup, #header, #layerpanel {
+  left: 36px;
+}
+</style>
+<script src="../Qgis2threejs/threejs/three.min.js"></script>
+<script src="../Qgis2threejs/threejs/OrbitControls.js"></script>
+<script src="../Qgis2threejs/threejs/ViewHelper.js"></script>
+<script src="../Qgis2threejs/Qgis2threejs.js"></script>
+<style>
+#comment, #commentLarge {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  margin: 1px 2px;
+  padding: 2px;
+  background-color: white;
+  box-shadow: 1px 2px 6px rgba(0,0,0,0.2);
+  z-index: 100;
+  display: visible;
+  font-size: x-small;
+
+}
+
+#title {
+  display: visible;
+  position: absolute;
+  top: 0px;
+  left: 40px;
+  margin: 0px;
+  padding: 4px;
+  background-color: white;
+  box-shadow: 1px 2px 6px rgba(0,0,0,0.2);
+  display: visible;
+  font-size: small;
+  z-index: 10;
+
+}
+
+h1 {
+  font-size: medium;
+
+}
+
+#myname {
+  font-size: 70%;
+}
+
+#showbtn {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  font-size: xx-small;
+}
+</style></head>
+<body>
+<div id="view">
+  <div id="northarrow"></div>
+  <div id="navigation"></div>
+</div>
+
+<!-- popup -->
+<div id="popup">
+  <div id="closebtn">×</div>
+  <div id="popupbar"></div>
+  <div id="popupbody">
+    <div id="popupcontent"></div>
+
+    <!-- query result -->
+    <div id="queryresult">
+      <table id="qr_coords_table">
+        <caption>クリックした場所の経緯度<div id="zoomtopoint" class="action-zoom zoombtn"></div></caption>
+        <tr><td id="qr_coords"></td></tr>
+      </table>
+
+      <table id="qr_layername_table">
+        <caption>レイヤー<div id="zoomtolayer" class="action-zoom zoombtn"></div></caption>
+        <tr><td id="qr_layername"></td></tr>
+      </table>
+
+      <table id="qr_attrs_table">
+        <caption>Attributes</caption>
+      </table>
+
+      <!-- camera actions and measure tool -->
+      <div id="orbitbtn" class="action-btn action-orbit">クリック地点を中心に回転</div>
+      <div id="measurebtn" class="action-btn">距離計測</div>
+    </div>
+
+    <!-- page info -->
+    <div id="pageinfo">
+      <h1>今現在表示しているビューの URL</h1>
+      <div><input id="urlbox" type="text"></div>
+
+      <h1>操作方法</h1>
+      <table id="usage">
+        <tr><td colspan="2" class="star">マウス</td></tr>
+        <tr><td>左ボタン + 移動</td><td>対象を中心に視点移動</td></tr>
+        <tr><td>マウスホイール</td><td>ズームイン/アウト</td></tr>
+        <tr><td>右ボタン + 移動</td><td>視線を上下左右にパン</td></tr>
+
+        <tr><td colspan="2" class="star">キーボード</td></tr>
+        <tr><td>矢印キー</td><td>視点を水平移動(前後左右)</td></tr>
+        <tr><td>シフト + 矢印キー</td><td>対象を中心に視点移動</td></tr>
+        <tr><td>Ctrl + 矢印キー</td><td>視線を上下左右にパン</td></tr>
+        <tr><td>シフト + Ctrl + ↑ / ↓</td><td>ズームイン/アウト</td></tr>
+        <tr><td>L</td><td>ラベル表示/非表示</td></tr>
+        <tr><td>R</td><td>回転アニメーション開始/停止</td></tr>
+        <tr><td>W</td><td>ワイヤーフレーム表示</td></tr>
+        <tr><td>シフト + R</td><td>視点位置リセット</td></tr>
+        <tr><td>シフト + S</td><td>画像保存</td></tr>
+      </table>
+
+      <h1>About</h1>
+      <div id="about"><img src="../Qgis2threejs/Qgis2threejs.png">
+        This page was made with <a href="https://www.qgis.org/">QGIS</a> and <a href="https://github.com/minorua/Qgis2threejs">Qgis2threejs</a> plugin (version 2.7.1).
+        <div>Powered by <a href="https://threejs.org/">three.js</a>
+        <span id="lib_proj4js"> and <a href="https://trac.osgeo.org/proj4js/">Proj4js</a></span>.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- progress bar -->
+<div id="progress"><div id="progressbar"></div></div>
+
+<!-- menu -->
+<div id="toolbtns">
+  <div id="layerbtn"></div>
+  <div id="animbtn" class="hidden"></div>
+  <div id="infobtn"></div>
+</div>
+
+<!-- header and footer -->
+<div id="header"></div>
+<div id="footer"></div>
+
+<!-- layer panel -->
+<div id="layerpanel">
+  <div id="layerlist"></div>
+</div>
+
+<!-- animation -->
+<div id="narrativebox" class="ef1">
+  <div id="narbody">
+
+  </div>
+  <div id="nextbtn"></div>
+</div>
+
+<script>
+Q3D.Config.allVisible = true;
+Q3D.Config.localMode = true;
+Q3D.Config.northArrow.enabled = true;
+Q3D.Config.northArrow.color = 0x666666;
+
+var container = document.getElementById("view"),
+    app = Q3D.application,
+    gui = Q3D.gui;
+
+app.init(container);       // initialize viewer
+
+// load the scene
+app.loadSceneFile("./data/index/scene.js", function (scene) {
+  // scene file has been loaded
+  app.start();
+}, function (scene) {
+  // all relevant files have been loaded
+
+});
+</script>
+
+<!-- コピーライト表記 -->
+<div id="comment">
+<input id="showbtn" type="button" value="詳細" onclick="clickBtn2()" />
+使用データ：<br/>
+　国土地理院<br/>
+　　<a href="https://fgd.gsi.go.jp/download/ref_dem.html" target="_blank">数値標高モデル</a>,<br/>
+　　<a href="https://maps.gsi.go.jp/#14/39.099360/140.048862/&base=std&ls=std%7Cvlcd_chokai&blend=1&disp=11&lcd=vlcd_chokai&vs=c1g1j0h0k0l0u0t0z0r0s0m0f1&d=m" target="_blank">火山地形分類データファイル</a><br/>
+　　　<a href="https://maps.gsi.go.jp/#14/39.099360/140.048862/&base=std&ls=std%7Cvlcd_chokai&blend=1&disp=11&lcd=vlcd_chokai&vs=c1g1j0h0k0l0u0t0z0r0s0m0f1&d=m" target="_blank">「鳥海山」</a><br/>
+(高さ強調：×2倍)
+</div>
+
+<div id="commentLarge">
+<input id="showbtn" type="button" value="×" onclick="clickBtn2()" />
+地形データ：　　<a href="https://fgd.gsi.go.jp/download/ref_dem.html" target="_blank">国土地理院 数値標高モデル</a><br/>
+地形分類データ：<a href="https://maps.gsi.go.jp/#14/39.099360/140.048862/&base=std&ls=std%7Cvlcd_chokai&blend=1&disp=11&lcd=vlcd_chokai&vs=c1g1j0h0k0l0u0t0z0r0s0m0f1&d=m" target="_blank">国土地理院 火山地形分類データファイル「鳥海山」D1-No.1015</a><br/>
+地図画像：　　　<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院 地理院タイル</a><br/>
+<!--　測量法に基づく国土地理院長承認(複製)R 2JHf 12<br/>
+　本製品を複製する場合には、国土地理院の長の承認を得なければならない。<br/>-->
+<br/>
+素材画像生成：　<a href="http://www.jizoh.jp/pages/gj0.html" target="_blank">ジオ地蔵.app (片栁由明 氏)</a><br/>
+加工・合成：　　<a href="https://chokaitobishima.com" target="_blank">鳥海山・飛島ジオパーク</a> <span id="myname">畠中</span><br/>
+<br/>
+(高さ強調：×2倍)
+</div>
+<script>
+//初期表示は非表示
+document.getElementById("commentLarge").style.visibility ="hidden";
+
+function clickBtn2(){
+	const p2 = document.getElementById("commentLarge");
+
+	if(p2.style.visibility=="visible"){
+		// hiddenで非表示
+		p2.style.visibility ="hidden";
+	}else{
+		// visibleで表示
+		p2.style.visibility ="visible";
+	}
+}
+</script>
+
+</body>
+
+</html>
