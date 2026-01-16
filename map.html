@@ -21,6 +21,8 @@ function init_map() {
 		{attribution: "<a href='http://osm.org/copyright'> ©OpenStreetMap </a>"}
 	).addTo(map);
 	
+	//スケールバーを追加する
+	L.control.scale({imperial: false, metric: true}).addTo(map);
 }
 
 //ダウンロード時に初期化する
