@@ -11,15 +11,16 @@
 	<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
 function init_map() {
-    const map = L.map('mapcontainer');
-
-    //初期の中心位置とズームレベルを設定
-    map.setView([39.00, 140.00], 10); 
-
-    //マップタイルを読み込み、引用元を記載する
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', 
-        {attribution: "<a href='http://osm.org/copyright'> ©OpenStreetMap </a>"}
-    ).addTo(map);
+	const map = L.map('mapcontainer');
+	
+	//初期の中心位置とズームレベルを設定
+	map.setView([39.00, 140.00], 10); 
+	
+	//マップタイルを読み込み、引用元を記載する
+	L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', 
+		{attribution: "<a href='http://osm.org/copyright'> ©OpenStreetMap </a>"}
+	).addTo(map);
+	
 }
 
 //ダウンロード時に初期化する
