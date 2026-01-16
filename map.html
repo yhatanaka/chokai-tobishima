@@ -23,6 +23,7 @@ function init_map() {
 	
 	//スケールバーを追加する
 	L.control.scale({imperial: false, metric: true}).addTo(map);
+	L.marker([39, 139.9]).addTo(map);
 }
 
 //ダウンロード時に初期化する
