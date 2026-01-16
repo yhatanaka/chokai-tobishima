@@ -16,10 +16,12 @@ function init_map() {
 	const map =  new maplibregl.Map({
 		container: 'mapcontainer',
 		style: 'https://gsi-cyberjapan.github.io/gsivectortile-mapbox-gl-js/std.json', 
-		center: [142.14, 43.65], 
+		center: [139.875, 39.077], 
 		zoom: 5, 
 		pitch: 0 
 	});
+	map.addControl(new maplibregl.NavigationControl(), 'top-right');
+	map.addControl(new maplibregl.ScaleControl(), 'bottom-left');
 }
 
 //ダウンロード時に初期化する
