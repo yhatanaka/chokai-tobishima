@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="jp">
+
+<head>
+	<meta http-equiv='content-type' charset='utf-8'>
+	<meta name='viewport' content='width=device-width'>
+</head>
+<body>
+<div style='position:relative; width:100%;  margin:0px; margin-top:30px; margin-bottom:30px;'>
+<div id='mapcontainer2026116105630' style='width:100%; height:800px; z-index:0;'></div>
+<div class='mapmask' id='mapmask2026116105630' style='width:100%; height:800px;'><div id='mapmessage2026116105630'>
+<p>パントレ</p></div></div></div>
+
+<!-- 以下LeafletのJavaScriptとCSS（ページの1つ目のマップには必須） -->
+<link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css' integrity='sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=' crossorigin=''/>
+<script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js' integrity='sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=' crossorigin=''></script>
+
+<!-- 以下CSS -->
+<style>
+
+/* GestureHandling関連のCSS */
+.mapmask{pointer-events:none; position:absolute; height:100%; background:rgba(0, 0, 0, 0.5); opacity:0; top:0; left:0; z-index:1; transition:0.5s; display:none;}
+#mapmessage2026116105630{margin-left:5%; color:#ffffff; position:absolute; width:90%; text-align:center; top:50%;
+    -webkit-transform:translateY(-50%); -ms-transform:translateY(-50%); transform:translateY(-50%);}
+.mapshow{opacity:1;}
+
+</style>
+<script>
+
+function init_map_2026116105630() {
+
+    const map2026116105630 = L.map('mapcontainer2026116105630',{
+        worldCopyJump: true, //一周してもマーカー保持
+        maxBounds: [[90, -Infinity], [-90, Infinity]], //北極と南極で範囲制限
+        minZoom:2,
+        dragging: false, touchZoom: false, scrollWheelZoom: false, tap: false});
+    map2026116105630.setView([39.028121257287395, 139.8933914096474], 12); //初期の中心位置とズームレベルを設定
+
+    //マップタイルを読み込み、引用元を記載
+    L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html'>国土地理院</a><br>マップ生成:<a href='https://pancake-trail.site/leaflet-maps-maker/'>パントレ</a>"}).addTo(map2026116105630);
+
+    //マップにスケールバーを追加
+    L.control.scale({imperial: false, metric: true, position: 'topright'}).addTo(map2026116105630);
+
+
+    //以下地図にGestureHandling機能を付加する
+    setTimeout(function(){document.getElementById('mapmask2026116105630').style.display='block';}, 600);
+    const MaskLanguage=(window.navigator.languages&&window.navigator.languages[0])||window.navigator.language
+        ||window.navigator.userLanguage||window.navigator.browserLanguage;
+    let ctrl_down = 0;
+    let Timeout;
+    //地図のmousewheelイベント
+    document.getElementById('mapcontainer2026116105630').addEventListener('wheel', function(e){
+        if((MaskLanguage=='ja')||(MaskLanguage=='ja-JP')||(MaskLanguage=='ja-JP-mac')){
+            document.getElementById('mapmessage2026116105630').innerText = '地図をズームするには、Ctrl (Command) キーを押しながらスクロールして下さい';
+        }else{
+            document.getElementById('mapmessage2026116105630').innerText = 'Use Ctrl (Command) + Scroll to zoom the map';}
+        if(ctrl_down ==1){
+            e.returnValue = false; /*ブラウザズームを妨害*/
+            map2026116105630.scrollWheelZoom.enable(); document.getElementById('mapmask2026116105630').classList.remove('mapshow');
+        }else{
+            clearTimeout(Timeout);/*一回リセット*/
+            map2026116105630.scrollWheelZoom.disable(); document.getElementById('mapmask2026116105630').classList.add('mapshow');
+            Timeout = setTimeout(function(){document.getElementById('mapmask2026116105630').classList.remove('mapshow');}, 3000);}})
+    //キーボードのキーイベント
+    document.body.addEventListener('keydown', function(e){
+        if(e.ctrlKey||e.metaKey){ /*実はWindowsキーでも動作してしまうので、KeyUpをpreventしていない*/
+            ctrl_down = 1; document.getElementById('mapmask2026116105630').classList.remove('mapshow');}});
+    document.body.addEventListener('keyup', function(e){ ctrl_down = 0;});
+    //地図のmouseleaveとmousemoveのイベント
+    document.getElementById('mapcontainer2026116105630').addEventListener('mouseleave', function(e){
+        document.getElementById('mapmask2026116105630').classList.remove('mapshow');map2026116105630.dragging.disable();});
+    document.getElementById('mapcontainer2026116105630').addEventListener('mousemove', function(e){map2026116105630.dragging.enable();});
+    //地図のtouchmoveのイベント
+    document.getElementById('mapcontainer2026116105630').addEventListener('touchmove', function(e){
+        if((MaskLanguage=='ja')||(MaskLanguage=='ja-JP')||(MaskLanguage=='ja-JP-mac')){
+            document.getElementById('mapmessage2026116105630').innerText = '地図を移動させるには\n指２本で操作します';
+        }else{
+            document.getElementById('mapmessage2026116105630').innerText = 'Use two fingers to move the map';}
+        if(e.touches.length == 2){
+            e.preventDefault(); /*デフォルトのイベントを妨害*/
+            map2026116105630.dragging.enable(); map2026116105630.touchZoom.enable();
+            if (map2026116105630.tap) map2026116105630.tap.enable();
+            document.getElementById('mapmask2026116105630').classList.remove('mapshow');
+        }else{
+            clearTimeout(Timeout);/*一回リセット*/
+            map2026116105630.dragging.disable(); document.getElementById('mapmask2026116105630').classList.add('mapshow');
+            Timeout = setTimeout(function(){document.getElementById('mapmask2026116105630').classList.remove('mapshow');}, 3000);}});
+}
+
+window.addEventListener('DOMContentLoaded', init_map_2026116105630());
+
+</script>
+
+</body>
+</html>
+<!--
+-->
