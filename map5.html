@@ -149,8 +149,8 @@
             map.setStyle('https://gsi-cyberjapan.github.io/gsivectortile-mapbox-gl-js/std.json');
             return; // setStyleが非同期で走るためここでリターン
         } else if (type === 'osm_vector') {
-            // OSMベクトルタイル (MapLibre Demo Tilesを使用 - キー不要のデモ用)
-            map.setStyle('https://demotiles.maplibre.org/style.json');
+            // OSMベクトルタイル
+            map.setStyle('ttps://tile.openstreetmap.jp/styles/osm-bright-ja/style.json');
             return;
         } 
         
