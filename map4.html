@@ -39,6 +39,12 @@ body { margin:0; padding:0; }
 <body>
  test9
     <div id="map"></div>
+<div id="menu">
+	<ul>
+		<li><input id="style" type="checkbox" value="std"><label for="std">サンプルスタイル（標準地図風）適用</label></li>
+	</ul>
+</div>
+
 <script>
 let protocol = new pmtiles.Protocol();
 maplibregl.addProtocol("pmtiles",protocol.tile);
@@ -57,6 +63,12 @@ var map = new maplibregl.Map({
 });
 
 map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+
+let check1 = document.getElementById('style');
+
+document.getElementById('style').addEventListener('click', () => {
+  check1.checked ? map.setStyle('./style/std.json') : map.setStyle('./style/skeleton.json');
+});
 
 
 </script>
