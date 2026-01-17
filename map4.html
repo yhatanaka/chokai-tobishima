@@ -19,6 +19,20 @@ body { margin:0; padding:0; }
 #map canvas {
   cursor: crosshair;
 }
+#menu {
+	position: absolute;
+	top:0%;
+	right:0%;
+	background: #3e3e3ec7;
+	color: #ffffff;
+	padding: 10px;
+	font-family: 'Open Sans', sans-serif;
+}
+#menu ul{
+	list-style:none;
+	padding:0;
+	margin:0;
+}
 </style>
 </head>
 
@@ -36,7 +50,7 @@ var map = new maplibregl.Map({
   style: 'https://gsi-cyberjapan.github.io/optimal_bvmap/style/std.json',
   center: [139.875, 39.077], 
   zoom: 14,
-  maxZoom: 17.99,
+  maxZoom: 17,
   minZoom: 4,
   localIdeographFontFamily: false
 //  localIdeographFontFamily: ['MS Gothic', 'Hiragino Kaku Gothic Pro', 'sans-serif']
