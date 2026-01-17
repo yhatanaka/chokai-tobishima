@@ -4,6 +4,10 @@
 <head>
     <meta charset="utf-8">
     <title>サンプル</title>
+    <meta
+      property="og:description"
+      content="Initialize a map in an HTML element with MapLibre GL JS."
+    />
     <script src='https://unpkg.com/maplibre-gl@5.16.0/dist/maplibre-gl.js'></script>
     <link href='https://unpkg.com/maplibre-gl@5.16.0/dist/maplibre-gl.css' rel='stylesheet' />
     <style type="text/css">
@@ -28,7 +32,7 @@ const map =  new maplibregl.Map({
     <!-- style: 'https://maps.gsi.go.jp/vector/data/blank.json', -->
     center: [139.875, 39.077],
     zoom: 15,
-    pitch: 0
+    maplibreLogo: true,
 })
 <!-- https://github.com/gsi-cyberjapan/gsimaps-vector-experiment/ -->
 </script>
