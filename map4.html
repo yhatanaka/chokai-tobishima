@@ -63,6 +63,11 @@ var map = new maplibregl.Map({
 });
 
 map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+// スケール表示
+map.addControl(new maplibregl.ScaleControl({
+    maxWidth: 200,
+    unit: 'metric'
+}));
 
 let check1 = document.getElementById('style');
 
