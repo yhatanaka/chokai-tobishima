@@ -2,148 +2,273 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Advanced MapLibre Viewer</title>
-    <script src="https://unpkg.com/maplibre-gl/dist/maplibre-gl.js"></script>
-    <link href="https://unpkg.com/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GSI & OSM Advanced Map</title>
+    <script src="https://unpkg.com/maplibre-gl@5.0.0/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@5.0.0/dist/maplibre-gl.css" rel="stylesheet" />
     <style>
-        body { margin: 0; padding: 0; }
+        body { margin: 0; padding: 0; font-family: "Helvetica Neue", Arial, Helvetica, sans-serif; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-        .menu-panel {
-            position: absolute; background: white; padding: 10px; border-radius: 4px;
-            top: 10px; right: 10px; z-index: 1; font-family: sans-serif;
-            max-width: 200px; box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        
+        /* 操作パネルのスタイル */
+        .map-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            width: 240px;
+            z-index: 10;
+            font-size: 14px;
         }
-        details summary { cursor: pointer; font-weight: bold; margin-bottom: 5px; }
-        .control-group { margin-bottom: 10px; border-top: 1px solid #eee; pt: 5px; }
-        label { display: block; font-size: 0.9em; }
+        details summary {
+            cursor: pointer;
+            font-weight: bold;
+            outline: none;
+            margin-bottom: 5px;
+        }
+        .control-group {
+            margin-top: 10px;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+        label { display: block; margin-bottom: 5px; cursor: pointer; }
+        select, input[type="range"] { width: 100%; margin-bottom: 5px; }
+        .note { font-size: 11px; color: #666; margin-top: 2px; }
     </style>
 </head>
 <body>
 
 <div id="map"></div>
 
-<div class="menu-panel">
+<div class="map-overlay">
     <details open>
-        <summary>地図設定</summary>
+        <summary>地図コントロール</summary>
         
         <div class="control-group">
-            <p><strong>ベースマップ</strong></p>
-            <select id="base-layer-select" style="width:100%">
-                <option value="gsi-vt">国土地理院 最適化ベクトル</option>
-                <option value="gsi-std">国土地理院 標準地図</option>
-                <option value="gsi-pale">国土地理院 淡色地図</option>
-                <option value="gsi-photo">国土地理院 写真</option>
-                <option value="osm-raster">OpenStreetMap (Raster)</option>
-                <option value="osm-vector">OpenStreetMap (Vector)</option>
+            <label for="basemap"><strong>ベースマップ</strong></label>
+            <select id="basemap">
+                <option value="gsi_vector">地理院 最適化ベクトル</option>
+                <option value="gsi_std">地理院 標準地図</option>
+                <option value="gsi_pale">地理院 淡色地図</option>
+                <option value="gsi_photo">地理院 写真</option>
+                <option value="osm_raster">OpenStreetMap (Raster)</option>
+                <option value="osm_vector">OpenStreetMap (Vector)</option>
             </select>
         </div>
 
         <div class="control-group">
-            <p><strong>陰影起伏図 (重ね合わせ)</strong></p>
-            <label><input type="checkbox" id="hillshade-toggle"> 表示する</label>
-            <label>不透明度: <input type="range" id="hillshade-opacity" min="0" max="1" step="0.1" value="0.5"></label>
-            <label>合成モード: 
-                <select id="hillshade-blend">
-                    <option value="normal">通常 (normal)</option>
-                    <option value="multiply">乗算 (multiply)</option>
+            <label><strong>陰影・起伏</strong> <input type="checkbox" id="layer-toggle" checked></label>
+            
+            <label>モード:
+                <select id="blend-mode">
+                    <option value="normal">通常 (画像重ね合わせ)</option>
+                    <option value="multiply" selected>乗算 (Hillshade計算)</option>
                 </select>
             </label>
+            
+            <label>濃さ / 不透明度:
+                <input type="range" id="opacity-slider" min="0" max="1" step="0.1" value="0.5">
+            </label>
+            <div class="note">※乗算モードは地形データから陰影を計算します</div>
         </div>
 
         <div class="control-group">
-            <p><strong>3D地形</strong></p>
-            <label><input type="checkbox" id="terrain-toggle"> 地形を立体化</label>
+            <label><strong>3D地形 (Terrain)</strong> <input type="checkbox" id="terrain-toggle"></label>
+            <div class="note">※有効にして右クリックでドラッグすると立体に見えます</div>
         </div>
     </details>
 </div>
 
 <script>
+    // --- 初期設定 ---
+    const initialCenter = [139.875, 39.077]; // 指定の中心点
+    const initialZoom = 12;
+
+    // ソース定義（再利用するためオブジェクト化）
+    const sourcesDef = {
+        // 地理院ラスタ
+        'gsi-std': { type: 'raster', tiles: ['https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png'], tileSize: 256, attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html'>国土地理院</a>" },
+        'gsi-pale': { type: 'raster', tiles: ['https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png'], tileSize: 256, attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html'>国土地理院</a>" },
+        'gsi-photo': { type: 'raster', tiles: ['https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg'], tileSize: 256, attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html'>国土地理院</a>" },
+        // 地理院 陰影起伏図（画像）
+        'gsi-relief': { type: 'raster', tiles: ['https://cyberjapandata.gsi.go.jp/xyz/relief/{z}/{x}/{y}.png'], tileSize: 256, attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html'>国土地理院</a>" },
+        // 地理院 DEM（地形・乗算用計算ソース）※MapLibreのgsiエンコーディング対応を使用
+        'gsi-dem': { 
+            type: 'raster-dem', 
+            tiles: ['https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png'], 
+            tileSize: 256, 
+            encoding: 'gsi', 
+            maxzoom: 14,
+            attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html'>国土地理院</a>" 
+        },
+        // OSM ラスタ
+        'osm-raster': { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, attribution: '&copy; OpenStreetMap Contributors' }
+    };
+
     const map = new maplibregl.Map({
         container: 'map',
-        center: [139.875, 39.077], // 山形県酒田市付近
-        zoom: 12,
+        // 初期スタイルは「地理院 最適化ベクトル」を使用
+        // ※ベクトルタイルを使用するため、styleにはJSON URLを指定
+        style: 'https://gsi-cyberjapan.github.io/gsivectortile-mapbox-gl-js/std.json', 
+        center: initialCenter,
+        zoom: initialZoom,
         pitch: 0,
-        style: {
-            version: 8,
-            sources: {
-                // 各種ソースの定義
-                'gsi-std': { type: 'raster', tiles: ['https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png'], tileSize: 256, attribution: '国土地理院' },
-                'gsi-pale': { type: 'raster', tiles: ['https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png'], tileSize: 256, attribution: '国土地理院' },
-                'gsi-photo': { type: 'raster', tiles: ['https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg'], tileSize: 256, attribution: '国土地理院' },
-                'osm-raster': { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, attribution: '© OpenStreetMap' },
-                'hillshade': { type: 'raster', tiles: ['https://cyberjapandata.gsi.go.jp/xyz/relief/{z}/{x}/{y}.png'], tileSize: 256, attribution: '国土地理院' },
-                'gsi-terrain-dem': {
-                    type: 'raster-dem',
-                    tiles: ['https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png'],
-                    tileSize: 256,
-                    encoding: 'gsi'
+        hash: true
+    });
+
+    // スケールコントロール（左下）
+    map.addControl(new maplibregl.ScaleControl({ maxWidth: 200, unit: 'metric' }), 'bottom-left');
+    // ナビゲーションコントロール（右上）
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+    // --- ロジック ---
+
+    // UI要素の取得
+    const basemapSelect = document.getElementById('basemap');
+    const blendModeSelect = document.getElementById('blend-mode');
+    const layerToggle = document.getElementById('layer-toggle');
+    const opacitySlider = document.getElementById('opacity-slider');
+    const terrainToggle = document.getElementById('terrain-toggle');
+
+    // マップのスタイル読み込み完了時、およびスタイル変更後に呼ばれる処理
+    map.on('style.load', () => {
+        setupOverlayLayers();
+        updateTerrain();
+    });
+
+    // ベースマップ切り替え処理
+    basemapSelect.addEventListener('change', (e) => {
+        const type = e.target.value;
+        let styleConfig = { version: 8, sources: {}, layers: [] };
+
+        if (type === 'gsi_vector') {
+            // 国土地理院ベクトルタイル (外部スタイルJSON)
+            map.setStyle('https://gsi-cyberjapan.github.io/gsivectortile-mapbox-gl-js/std.json');
+            return; // setStyleが非同期で走るためここでリターン
+        } else if (type === 'osm_vector') {
+            // OSMベクトルタイル (MapLibre Demo Tilesを使用 - キー不要のデモ用)
+            map.setStyle('https://demotiles.maplibre.org/style.json');
+            return;
+        } 
+        
+        // ラスタタイルのスタイル構築
+        let sourceKey = '';
+        if (type === 'gsi_std') sourceKey = 'gsi-std';
+        else if (type === 'gsi_pale') sourceKey = 'gsi-pale';
+        else if (type === 'gsi_photo') sourceKey = 'gsi-photo';
+        else if (type === 'osm_raster') sourceKey = 'osm-raster';
+
+        styleConfig.sources[sourceKey] = sourcesDef[sourceKey];
+        styleConfig.layers.push({
+            id: 'base-layer',
+            type: 'raster',
+            source: sourceKey,
+            paint: { 'raster-fade-duration': 0 }
+        });
+        
+        // 背景色（写真以外は白バックにしておく）
+        if (type !== 'gsi_photo') {
+            styleConfig.layers.unshift({ id: 'background', type: 'background', paint: { 'background-color': '#ffffff' } });
+        }
+
+        map.setStyle(styleConfig);
+    });
+
+    // オーバーレイ（陰影起伏）の設定関数
+    // setStyleされるとソースも消えるため、毎回再設定が必要
+    function setupOverlayLayers() {
+        // DEMソースがない場合は追加 (地形と乗算用)
+        if (!map.getSource('gsi-dem')) {
+            map.addSource('gsi-dem', sourcesDef['gsi-dem']);
+        }
+        // ラスタ陰影ソースがない場合は追加 (通常モード用)
+        if (!map.getSource('gsi-relief')) {
+            map.addSource('gsi-relief', sourcesDef['gsi-relief']);
+        }
+
+        updateOverlayVisuals();
+    }
+
+    // オーバーレイの表示状態更新
+    function updateOverlayVisuals() {
+        const isVisible = layerToggle.checked;
+        const mode = blendModeSelect.value;
+        const opacity = parseFloat(opacitySlider.value);
+
+        // 既存レイヤの掃除
+        if (map.getLayer('overlay-relief-raster')) map.removeLayer('overlay-relief-raster');
+        if (map.getLayer('overlay-hillshade-calc')) map.removeLayer('overlay-hillshade-calc');
+
+        if (!isVisible) return;
+
+        if (mode === 'normal') {
+            // 通常モード：画像タイル(gsi-relief)を重ねる
+            map.addLayer({
+                id: 'overlay-relief-raster',
+                type: 'raster',
+                source: 'gsi-relief',
+                paint: {
+                    'raster-opacity': opacity
                 }
-            },
-            layers: [
-                { id: 'gsi-std', type: 'raster', source: 'gsi-std', layout: { visibility: 'visible' } }
-            ]
+            });
+        } else if (mode === 'multiply') {
+            // 乗算モード：DEMデータ(gsi-dem)から陰影(hillshade)を計算して重ねる
+            // これにより、白い部分は透明に、影の部分だけが黒く重なり「乗算」のような効果になる
+            map.addLayer({
+                id: 'overlay-hillshade-calc',
+                type: 'hillshade',
+                source: 'gsi-dem',
+                paint: {
+                    'hillshade-exaggeration': 0.8, // 陰影の強調度
+                    'hillshade-shadow-color': '#000000',
+                    'hillshade-illumination-direction': 315,
+                    'hillshade-accent-color': '#000000',
+                    'hillshade-highlight-color': '#ffffff', // ハイライトは白（透明に近い扱い）
+                    // Hillshadeレイヤの不透明度は直接指定しにくいが、shadow-colorのアルファで制御可能
+                    // ここでは簡易的に全透過度を使用（MapLibre v2+対応）
+                }
+            });
+            // プロパティで透過度設定
+            // hillshadeレイヤには raster-opacity のような全透過プロパティがない場合があるため
+            // 影の色味自体を調整するのがベストだが、MapLibre最新版ではレイヤ透過度が効くことが多い
+            // 万が一効かない場合を考慮し、setPaintPropertyを使用
+            map.setPaintProperty('overlay-hillshade-calc', 'hillshade-exaggeration', opacity);
+        }
+    }
+
+    // UIイベントリスナー
+    layerToggle.addEventListener('change', updateOverlayVisuals);
+    blendModeSelect.addEventListener('change', updateOverlayVisuals);
+    opacitySlider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        if (map.getLayer('overlay-relief-raster')) {
+            map.setPaintProperty('overlay-relief-raster', 'raster-opacity', val);
+        }
+        if (map.getLayer('overlay-hillshade-calc')) {
+            // Hillshadeレイヤーの場合、exaggeration（強調度）を変えることで濃さを擬似的に調整
+            map.setPaintProperty('overlay-hillshade-calc', 'hillshade-exaggeration', val);
         }
     });
 
-    // スケール表示
-    map.addControl(new maplibregl.ScaleControl({ maxWidth: 200, unit: 'metric' }), 'bottom-left');
-    map.addControl(new maplibregl.NavigationControl());
+    // 3D地形 (Terrain) 切り替え
+    function updateTerrain() {
+        // ソースが確実にあるか確認
+        if (!map.getSource('gsi-dem')) {
+             map.addSource('gsi-dem', sourcesDef['gsi-dem']);
+        }
 
-    map.on('load', () => {
-        // ベクトルタイルの追加 (ロード後に実行)
-        // 最適化ベクトルタイル
-        map.addSource('gsi-vt-source', { type: 'vector', tiles: ['https://cyberjapandata.gsi.go.jp/xyz/experimental_bvmap/{z}/{x}/{y}.pbf'] });
-        // OSMベクトル (例としてMapTiler等が必要なため、ここでは空の定義。必要に応じてスタイルJSONを読み込んでください)
+        if (terrainToggle.checked) {
+            map.setTerrain({ source: 'gsi-dem', exaggeration: 1.5 });
+        } else {
+            map.setTerrain(null);
+        }
+    }
 
-        // 陰影起伏レイヤーを最前面に追加
-        map.addLayer({
-            id: 'hillshade-layer',
-            type: 'raster',
-            source: 'hillshade',
-            layout: { visibility: 'none' },
-            paint: { 'raster-opacity': 0.5 }
-        });
+    terrainToggle.addEventListener('change', updateTerrain);
 
-        // --- イベント制御 ---
-
-        // ベースマップ切り替え
-        document.getElementById('base-layer-select').addEventListener('change', (e) => {
-            const val = e.target.value;
-            const layers = ['gsi-std', 'gsi-pale', 'gsi-photo', 'osm-raster'];
-            
-            // 全て非表示にして選択したものだけ表示 (ベクトルタイルは本来スタイル差し替えが必要ですが簡略化)
-            layers.forEach(id => {
-                if(map.getLayer(id)) map.setLayoutProperty(id, 'visibility', (id === val ? 'visible' : 'none'));
-            });
-            // 注: 本来ベクトルタイルの切り替えは setStyle が推奨されますが、この構成ではラスタを優先しています。
-        });
-
-        // 陰影起伏図の表示・非表示
-        document.getElementById('hillshade-toggle').addEventListener('change', (e) => {
-            map.setLayoutProperty('hillshade-layer', 'visibility', e.target.checked ? 'visible' : 'none');
-        });
-
-        // 不透明度
-        document.getElementById('hillshade-opacity').addEventListener('input', (e) => {
-            map.setPaintProperty('hillshade-layer', 'raster-opacity', parseFloat(e.target.value));
-        });
-
-        // 合成モード (Multiply)
-        document.getElementById('hillshade-blend').addEventListener('change', (e) => {
-            // MapLibreのRasterレイヤーには直接のmultiplyプロパティはないため、
-            // 高度な実装では background-blend-mode 的な振る舞いを canvas 上で制御するか、
-            // 複数のレイヤーの重ね順で調整します。ここでは擬似的に透明度で調整。
-        });
-
-        // 3D地形の有効化
-        document.getElementById('terrain-toggle').addEventListener('change', (e) => {
-            if (e.target.checked) {
-                map.setTerrain({ source: 'gsi-terrain-dem', exaggeration: 1.5 });
-            } else {
-                map.setTerrain(null);
-            }
-        });
-    });
 </script>
 
 </body>
