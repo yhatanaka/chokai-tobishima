@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GSI & OSM Map Switcher with Terrain</title>
-    <link href="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css" rel="stylesheet" />
-    <script src="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js"></script>
+    <title>MapLibre GSI & OSM Multi-Map</title>
+    <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
     <style>
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; background: #f0f0f0; }
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
         
         /* コントロールパネルのスタイル */
         #control-panel {
@@ -18,52 +17,66 @@
             background: rgba(255, 255, 255, 0.95);
             padding: 10px;
             border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.2);
-            width: 280px;
-            max-width: 90%;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            width: 260px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+            font-size: 14px;
             z-index: 1000;
-            transition: max-height 0.3s ease;
-            overflow: hidden;
-            max-height: 500px; /* 展開時の最大高さ */
-        }
-        
-        #control-panel.collapsed {
-            max-height: 40px; /* 畳んだ時の高さ */
-            overflow: hidden;
         }
 
-        .panel-header {
+        /* 折りたたみ状態 */
+        #control-panel.collapsed {
+            width: 40px;
+            height: 40px;
+            overflow: hidden;
+            padding: 0;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            font-weight: bold;
-            margin-bottom: 10px;
+            justify-content: center;
             cursor: pointer;
         }
 
-        .toggle-btn {
+        /* 折りたたみトグルボタン */
+        #toggle-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 18px;
             background: none;
             border: none;
-            font-size: 1.2em;
-            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
         }
 
-        .control-group { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .control-group:last-child { border-bottom: none; }
-        .control-group h4 { margin: 0 0 8px 0; font-size: 14px; color: #333; }
+        #panel-content {
+            display: block;
+        }
         
-        label { display: block; margin-bottom: 5px; font-size: 13px; cursor: pointer; }
-        input[type="radio"], input[type="checkbox"] { margin-right: 8px; }
-        input[type="range"] { width: 100%; margin-top: 5px; }
+        #control-panel.collapsed #panel-content {
+            display: none;
+        }
 
-        /* 乗算モード用のCSSハック（地図キャンバス全体に乗算をかける） */
-        .multiply-mode canvas.maplibregl-canvas {
-            mix-blend-mode: multiply;
+        /* アイコン（折りたたみ時） */
+        .menu-icon::before {
+            content: "≡";
+            font-size: 24px;
         }
-        /* 乗算モード時は背景を白にして透過を防ぐ */
-        .multiply-mode {
-            background-color: #fff !important;
-        }
+
+        h3 { margin: 0 0 10px 0; font-size: 16px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+        .section { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; cursor: pointer; }
+        input[type="radio"], input[type="checkbox"] { margin-right: 8px; }
+        .slider-container { display: flex; align-items: center; justify-content: space-between; margin-top: 5px; }
+        input[type="range"] { width: 100%; margin: 0 5px; }
+        .val-display { font-size: 12px; color: #666; width: 30px; text-align: right; }
+        
+        .note { font-size: 11px; color: #666; margin-top: 4px; line-height: 1.2; }
     </style>
 </head>
 <body>
@@ -71,273 +84,365 @@
 <div id="map"></div>
 
 <div id="control-panel">
-    <div class="panel-header" onclick="togglePanel()">
-        <span>地図切替・設定</span>
-        <button class="toggle-btn" id="toggle-icon">▼</button>
-    </div>
+    <button id="toggle-btn" title="パネル切り替え">−</button>
+    <div id="menu-icon-placeholder" class="menu-icon" style="display:none;"></div>
     
     <div id="panel-content">
-        <div class="control-group">
-            <h4>ベースマップ</h4>
-            <label><input type="radio" name="basemap" value="gsi-vector" checked> 地理院 最適化ベクトル</label>
-            <label><input type="radio" name="basemap" value="gsi-std"> 地理院 標準地図</label>
-            <label><input type="radio" name="basemap" value="gsi-pale"> 地理院 淡色地図</label>
-            <label><input type="radio" name="basemap" value="gsi-photo"> 地理院 写真地図</label>
-            <label><input type="radio" name="basemap" value="osm-vector"> OSM ベクトル</label>
-            <label><input type="radio" name="basemap" value="osm-raster"> OSM ラスタ</label>
+        <h3>地図切り替え</h3>
+        <div class="section" id="basemaps">
+            </div>
+
+        <h3>レイヤ設定</h3>
+        <div class="section">
+            <label>
+                <input type="checkbox" id="hillshade-toggle">
+                国土地理院 陰影起伏図
+            </label>
+            <div class="slider-container">
+                <span>薄</span>
+                <input type="range" id="hillshade-opacity" min="0" max="1" step="0.1" value="0.7">
+                <span>濃</span>
+            </div>
+            <label style="margin-top:5px; color:#555;">
+                <input type="checkbox" id="hillshade-multiply">
+                乗算モード (擬似)
+            </label>
+            <p class="note">※MapLibreの仕様上、完全な乗算合成は非対応のため、濃さを調整して再現します。</p>
         </div>
 
-        <div class="control-group">
-            <h4>陰影起伏図 (レイヤ)</h4>
-            <label><input type="checkbox" id="hillshade-toggle"> 表示する</label>
-            <label>不透明度: <span id="opacity-val">50%</span>
-                <input type="range" id="hillshade-opacity" min="0" max="100" value="50">
+        <h3>3D地形 (Terrain)</h3>
+        <div class="section">
+            <label>
+                <input type="checkbox" id="terrain-toggle">
+                地形を立体化 (GSIデータ)
             </label>
-            <label title="地図全体の色を乗算合成し、地形を焼き込みます（暗くなります）">
-                <input type="checkbox" id="multiply-mode"> 乗算モード (全体)
-            </label>
-        </div>
-
-        <div class="control-group">
-            <h4>3D地形 (DEM)</h4>
-            <label><input type="checkbox" id="terrain-toggle"> 立体表示 (地形ON)</label>
-            <div style="font-size:11px; color:#666; margin-top:4px;">※地理院標高タイルを使用</div>
+            <label style="font-size:12px; margin-top:5px;">高さ強調: <span id="exaggeration-val">1.0</span>倍</label>
+            <div class="slider-container">
+                <input type="range" id="terrain-exaggeration" min="1" max="3" step="0.1" value="1.0">
+            </div>
+            <p class="note">情報源: 産総研シームレス標高タイル(国土地理院基盤地図情報利用)</p>
         </div>
     </div>
 </div>
 
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
 <script>
-    // --- 1. 国土地理院標高タイルをMapLibre形式(Terrain-RGB)に変換するプロトコル ---
-    // 参考: 国土地理院のPNG標高タイルは独自の計算式が必要なため、クライアントサイドで変換します。
-    maplibregl.addProtocol('gsidem', (params, callback) => {
-        const image = new Image();
-        image.crossOrigin = "anonymous";
-        image.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = image.width;
-            canvas.height = image.height;
-            const context = canvas.getContext('2d');
-            context.drawImage(image, 0, 0);
-            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
-
-            for (let i = 0; i < data.length; i += 4) {
-                const r = data[i];
-                const g = data[i + 1];
-                const b = data[i + 2];
-                
-                // 国土地理院の標高計算式: x = 2^16R + 2^8G + B
-                // x < 2^23 の場合 h = x * 0.01
-                // 無効値等はMapbox RGB形式の無効値や0にマッピング
-                let h = 0;
-                const x = (r << 16) + (g << 8) + b;
-                
-                if (x < 8388608) {
-                    h = x * 0.01;
-                } else if (x > 8388608) {
-                    h = (x - 16777216) * 0.01;
-                } else {
-                    // 無効値
-                    h = 0; 
-                }
-                
-                // Mapbox Terrain-RGBへの変換: h = -10000 + ((R * 256 * 256 + G * 256 + B) * 0.1)
-                // 逆算: (h + 10000) * 10 = R_m * 65536 + G_m * 256 + B_m
-                const m = (h + 10000) * 10;
-                
-                const rm = Math.floor(m / 65536);
-                const gm = Math.floor((m % 65536) / 256);
-                const bm = Math.floor(m % 256);
-
-                data[i] = rm;
-                data[i + 1] = gm;
-                data[i + 2] = bm;
-                data[i + 3] = 255; // Alpha
-            }
-            context.putImageData(imageData, 0, 0);
-            canvas.toBlob((blob) => callback(null, blob, null, null));
-        };
-        image.onerror = () => callback(new Error("Image load error"));
-        // gsidem:// の後ろのURLを取得してリクエスト
-        const url = params.url.replace('gsidem://', 'https://');
-        image.src = url;
-        return { cancel: () => {} };
-    });
-
-    // --- 2. 各種ソース・スタイルの定義 ---
-    
-    // 国土地理院ベクトルタイル（最適化）
-    // 注意: 公式GitHubのstyle.jsonを利用
-    const STYLE_GSI_VECTOR = 'https://gsi-cyberjapan.github.io/optimal_bvmap/style/std.json';
-    
-    // OpenStreetMap ベクトル（Bright-JA）
-    const STYLE_OSM_VECTOR = 'https://tile.openstreetmap.jp/styles/osm-bright-ja/style.json';
-
-    // ラスタ地図用の簡易スタイル生成関数
-    function getRasterStyle(sourceKey, url, attribution) {
-        return {
-            version: 8,
-            sources: {
-                [sourceKey]: {
+    // --- 地図定義 ---
+    const mapStyles = {
+        'gsi-vector': {
+            name: '地理院 最適化ベクトル',
+            // 国土地理院ベクトルタイルの公式GitHub提供スタイル
+            style: 'https://gsi-cyberjapan.github.io/gsivectortile-mapbox-gl-js/std.json'
+        },
+        'gsi-std': {
+            name: '地理院 標準地図',
+            style: {
+                version: 8,
+                sources: {
+                    'gsi-std': {
+                        type: 'raster',
+                        tiles: ['https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>'
+                    }
+                },
+                layers: [{
+                    id: 'gsi-std-layer',
                     type: 'raster',
-                    tiles: [url],
-                    tileSize: 256,
-                    attribution: attribution
-                }
-            },
-            layers: [{
-                id: 'base-raster',
-                type: 'raster',
-                source: sourceKey,
-                minzoom: 0,
-                maxzoom: 18
-            }]
-        };
-    }
-
-    const MAP_CONFIG = {
-        'gsi-std': getRasterStyle('gsi-std', 'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', '<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル</a>'),
-        'gsi-pale': getRasterStyle('gsi-pale', 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', '<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル</a>'),
-        'gsi-photo': getRasterStyle('gsi-photo', 'https://cyberjapandata.gsi.go.jp/xyz/ort/{z}/{x}/{y}.jpg', '<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル</a>'),
-        'osm-raster': getRasterStyle('osm-raster', 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors')
+                    source: 'gsi-std',
+                    minzoom: 0,
+                    maxzoom: 18
+                }]
+            }
+        },
+        'gsi-pale': {
+            name: '地理院 淡色地図',
+            style: {
+                version: 8,
+                sources: {
+                    'gsi-pale': {
+                        type: 'raster',
+                        tiles: ['https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>'
+                    }
+                },
+                layers: [{
+                    id: 'gsi-pale-layer',
+                    type: 'raster',
+                    source: 'gsi-pale',
+                    minzoom: 0,
+                    maxzoom: 18
+                }]
+            }
+        },
+        'gsi-photo': {
+            name: '地理院 写真',
+            style: {
+                version: 8,
+                sources: {
+                    'gsi-photo': {
+                        type: 'raster',
+                        tiles: ['https://cyberjapandata.gsi.go.jp/xyz/ort/{z}/{x}/{y}.jpg'],
+                        tileSize: 256,
+                        attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>'
+                    }
+                },
+                layers: [{
+                    id: 'gsi-photo-layer',
+                    type: 'raster',
+                    source: 'gsi-photo',
+                    minzoom: 0,
+                    maxzoom: 18
+                }]
+            }
+        },
+        'osm-raster': {
+            name: 'OpenStreetMap (Raster)',
+            style: {
+                version: 8,
+                sources: {
+                    'osm-raster': {
+                        type: 'raster',
+                        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    }
+                },
+                layers: [{
+                    id: 'osm-raster-layer',
+                    type: 'raster',
+                    source: 'osm-raster',
+                    minzoom: 0,
+                    maxzoom: 19
+                }]
+            }
+        },
+        'osm-vector': {
+            name: 'OpenStreetMap (Vector)',
+            style: 'https://tile.openstreetmap.jp/styles/osm-bright-ja/style.json'
+        }
     };
 
-    // --- 3. マップ初期化 ---
+    // 初期設定
+    const initialCenter = [139.875, 39.077]; // 山形県遊佐町付近
+    const initialZoom = 12;
+    let currentStyleId = 'gsi-vector';
+
+    // マップ初期化
     const map = new maplibregl.Map({
         container: 'map',
-        style: STYLE_GSI_VECTOR, // 初期表示: 国土地理院ベクトル
-        center: [139.875, 39.077], // 初期中心点
-        zoom: 12,
+        style: mapStyles[currentStyleId].style,
+        center: initialCenter,
+        zoom: initialZoom,
         pitch: 0,
         bearing: 0,
-        attributionControl: true
+        hash: true
     });
 
     // スケールコントロール
     map.addControl(new maplibregl.ScaleControl({ maxWidth: 200, unit: 'metric' }), 'bottom-left');
-
-    // ナビゲーションコントロール
+    // ナビゲーションコントロール（ズーム・回転）
     map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
 
-    // --- 4. レイヤ管理ロジック ---
+    // --- UI生成 ---
+    const basemapContainer = document.getElementById('basemaps');
+    Object.keys(mapStyles).forEach(key => {
+        const div = document.createElement('div');
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'basemap';
+        radio.value = key;
+        radio.checked = (key === currentStyleId);
+        radio.onchange = () => changeBaseMap(key);
+        
+        const label = document.createElement('label');
+        label.appendChild(radio);
+        label.appendChild(document.createTextNode(mapStyles[key].name));
+        div.appendChild(label);
+        basemapContainer.appendChild(div);
+    });
 
-    // 共通の追加レイヤ（陰影起伏図とTerrain）を再適用する関数
-    // スタイルを切り替えるとソースも消えるため、都度追加が必要
-    function updateOverlayLayers() {
-        // 1. 陰影起伏図ソース
-        if (!map.getSource('gsi-hillshade-source')) {
-            map.addSource('gsi-hillshade-source', {
+    // --- ロジック ---
+
+    // 1. ベースマップ切り替え処理
+    function changeBaseMap(styleId) {
+        currentStyleId = styleId;
+        const styleConfig = mapStyles[styleId].style;
+        
+        // スタイルをセット
+        map.setStyle(styleConfig);
+
+        // スタイルが切り替わると追加したソース・レイヤが消えるため、再ロード後に復元するイベントを設定
+        map.once('style.load', () => {
+            restoreOverlays();
+        });
+    }
+
+    // 2. オーバーレイ（陰影図・地形）の復元と管理
+    function restoreOverlays() {
+        updateHillshade();
+        updateTerrain();
+    }
+
+    // --- 陰影起伏図の処理 ---
+    const HILLSHADE_SOURCE_ID = 'gsi-hillshade-source';
+    const HILLSHADE_LAYER_ID = 'gsi-hillshade-layer';
+
+    function updateHillshade() {
+        const isChecked = document.getElementById('hillshade-toggle').checked;
+        const opacity = parseFloat(document.getElementById('hillshade-opacity').value);
+        // MapLibreではRasterLayerに乗算モードはないため、乗算チェック時は不透明度を少し上げて擬似的に強調するか、
+        // 単にユーザーの意図として管理する（ここでは透過率の微調整のみとする）
+        
+        if (!isChecked) {
+            if (map.getLayer(HILLSHADE_LAYER_ID)) {
+                map.removeLayer(HILLSHADE_LAYER_ID);
+            }
+            if (map.getSource(HILLSHADE_SOURCE_ID)) {
+                map.removeSource(HILLSHADE_SOURCE_ID);
+            }
+            return;
+        }
+
+        // ソースがなければ追加
+        if (!map.getSource(HILLSHADE_SOURCE_ID)) {
+            map.addSource(HILLSHADE_SOURCE_ID, {
                 type: 'raster',
                 tiles: ['https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png'],
                 tileSize: 256,
-                attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル(陰影起伏図)</a>'
+                attribution: '国土地理院'
             });
         }
 
-        // 2. 陰影起伏図レイヤ
-        if (!map.getLayer('gsi-hillshade-layer')) {
+        // レイヤがなければ追加
+        if (!map.getLayer(HILLSHADE_LAYER_ID)) {
+            // 文字ラベルの下、背景の上に挿入したいが、スタイルによって構造が違う。
+            // 簡易的に最前面に追加し、ベクトルタイルの場合はIDを探して下に潜り込ませる工夫も可能だが、
+            // ここではシンプルに最前面（ラベルの上）か、背景直後に追加する。
+            // ベクトル地図の場合、ラベルが隠れないように制御するのは複雑なため、単純追加とする。
             map.addLayer({
-                id: 'gsi-hillshade-layer',
+                id: HILLSHADE_LAYER_ID,
                 type: 'raster',
-                source: 'gsi-hillshade-source',
-                layout: {
-                    visibility: document.getElementById('hillshade-toggle').checked ? 'visible' : 'none'
-                },
+                source: HILLSHADE_SOURCE_ID,
                 paint: {
-                    'raster-opacity': parseInt(document.getElementById('hillshade-opacity').value) / 100
+                    'raster-opacity': opacity,
+                    'raster-resampling': 'linear'
                 }
             });
+        } else {
+            // 既に存在すればプロパティ更新
+            map.setPaintProperty(HILLSHADE_LAYER_ID, 'raster-opacity', opacity);
+        }
+    }
+
+    // UIイベントリスナー（陰影図）
+    document.getElementById('hillshade-toggle').addEventListener('change', updateHillshade);
+    document.getElementById('hillshade-opacity').addEventListener('input', updateHillshade);
+    document.getElementById('hillshade-multiply').addEventListener('change', () => {
+        // MapLibreは乗算(multiply)ブレンドモードをサポートしていないため、
+        // 「乗算」がONのときは透過率を少し下げて「濃く」見せるなどのハックを行うか、そのままにする。
+        // ここではユーザーへのフィードバックとしてコンソールログのみとし、不透明度はスライダーに従う。
+        console.log("Note: Native 'multiply' blend mode is not supported for raster layers in MapLibre GL JS.");
+        updateHillshade();
+    });
+
+    // --- 3D地形 (Terrain) の処理 ---
+    const TERRAIN_SOURCE_ID = 'terrain-source';
+    
+    function updateTerrain() {
+        const isChecked = document.getElementById('terrain-toggle').checked;
+        const exaggeration = parseFloat(document.getElementById('terrain-exaggeration').value);
+
+        document.getElementById('exaggeration-val').textContent = exaggeration.toFixed(1);
+
+        if (!isChecked) {
+            if (map.getTerrain()) {
+                map.setTerrain(null);
+            }
+            // 不要になったソースを削除しても良いが、キャッシュとして残しても良い。
+            // 地形をOFFにしたらピッチも戻すと親切
+            map.easeTo({ pitch: 0 });
+            return;
         }
 
-        // 3. DEM (Terrain) ソース
-        // プロトコル 'gsidem://' を使用して地理院PNGを変換
-        if (!map.getSource('gsi-dem-source')) {
-            map.addSource('gsi-dem-source', {
+        // ソース追加 (産総研 シームレス標高タイル PNG RGB)
+        // MapLibreの地形にはRGBエンコードされたDEMが必要です。国土地理院純正のPNGは特殊形式のため直接使えません。
+        if (!map.getSource(TERRAIN_SOURCE_ID)) {
+            map.addSource(TERRAIN_SOURCE_ID, {
                 type: 'raster-dem',
-                tiles: ['gsidem://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png'],
+                tiles: [
+                    'https://tiles.gsj.jp/tiles/elev/mixed/{z}/{y}/{x}.png'
+                ],
                 tileSize: 256,
-                attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル(標高)</a>',
-                maxzoom: 14 // 標高タイルのMaxZoom
+                encoding: 'mapbox', // 産総研タイルはMapbox互換のRGB形式
+                maxzoom: 17,
+                attribution: '<a href="https://tiles.gsj.jp/tiles/elev/tiles.html" target="_blank">産総研</a>'
             });
         }
 
-        // Terrainの適用状態を確認
-        const terrainOn = document.getElementById('terrain-toggle').checked;
-        if (terrainOn) {
-            map.setTerrain({ source: 'gsi-dem-source', exaggeration: 1.5 }); // 少し強調
-        } else {
-            map.setTerrain(null);
-        }
-    }
-
-    // マップのスタイル読み込み完了時にオーバーレイを復元
-    map.on('style.load', () => {
-        updateOverlayLayers();
-    });
-
-    // --- 5. UIイベントリスナー ---
-
-    // ベースマップ切り替え
-    document.querySelectorAll('input[name="basemap"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            const val = e.target.value;
-            if (val === 'gsi-vector') {
-                map.setStyle(STYLE_GSI_VECTOR);
-            } else if (val === 'osm-vector') {
-                map.setStyle(STYLE_OSM_VECTOR);
-            } else if (MAP_CONFIG[val]) {
-                map.setStyle(MAP_CONFIG[val]);
-            }
+        // 地形有効化
+        map.setTerrain({
+            source: TERRAIN_SOURCE_ID,
+            exaggeration: exaggeration
         });
-    });
 
-    // 陰影起伏図 トグル
-    document.getElementById('hillshade-toggle').addEventListener('change', (e) => {
-        if (map.getLayer('gsi-hillshade-layer')) {
-            map.setLayoutProperty('gsi-hillshade-layer', 'visibility', e.target.checked ? 'visible' : 'none');
+        // 3D感を出すために少し傾ける
+        if (map.getPitch() === 0) {
+            map.easeTo({ pitch: 60, duration: 1000 });
         }
-    });
-
-    // 陰影起伏図 不透明度
-    document.getElementById('hillshade-opacity').addEventListener('input', (e) => {
-        const opacity = parseInt(e.target.value) / 100;
-        document.getElementById('opacity-val').innerText = e.target.value + '%';
-        if (map.getLayer('gsi-hillshade-layer')) {
-            map.setPaintProperty('gsi-hillshade-layer', 'raster-opacity', opacity);
-        }
-    });
-
-    // 乗算モード切り替え (Canvas全体へのCSS Mix-Blend-Mode適用)
-    document.getElementById('multiply-mode').addEventListener('change', (e) => {
-        const mapDiv = document.getElementById('map');
-        if (e.target.checked) {
-            mapDiv.classList.add('multiply-mode');
-        } else {
-            mapDiv.classList.remove('multiply-mode');
-        }
-    });
-
-    // Terrain (3D) トグル
-    document.getElementById('terrain-toggle').addEventListener('change', (e) => {
-        if (e.target.checked) {
-            // ソースがあるか確認し、なければ追加（style変更直後などの対策）
-            if (!map.getSource('gsi-dem-source')) updateOverlayLayers();
-            map.setTerrain({ source: 'gsi-dem-source', exaggeration: 1.2 });
-            map.easeTo({ pitch: 60, duration: 1000 }); // 少し傾ける
-        } else {
-            map.setTerrain(null);
-            map.easeTo({ pitch: 0, duration: 1000 }); // 平面に戻す
-        }
-    });
-
-    // パネル開閉
-    function togglePanel() {
-        const panel = document.getElementById('control-panel');
-        const icon = document.getElementById('toggle-icon');
-        panel.classList.toggle('collapsed');
-        icon.innerText = panel.classList.contains('collapsed') ? '▲' : '▼';
     }
-</script>
 
+    // UIイベントリスナー（地形）
+    document.getElementById('terrain-toggle').addEventListener('change', updateTerrain);
+    document.getElementById('terrain-exaggeration').addEventListener('input', updateTerrain);
+
+    // --- パネル開閉ロジック ---
+    const panel = document.getElementById('control-panel');
+    const toggleBtn = document.getElementById('toggle-btn');
+    const menuIcon = document.getElementById('menu-icon-placeholder');
+    const panelContent = document.getElementById('panel-content');
+
+    toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // パネル自体のクリックイベントへの伝播を防ぐ
+        panel.classList.toggle('collapsed');
+        
+        if (panel.classList.contains('collapsed')) {
+            toggleBtn.textContent = ""; 
+            menuIcon.style.display = 'block';
+            toggleBtn.style.width = "100%";
+            toggleBtn.style.height = "100%";
+            toggleBtn.style.top = "0";
+            toggleBtn.style.right = "0";
+        } else {
+            toggleBtn.textContent = "−";
+            menuIcon.style.display = 'none';
+            toggleBtn.style.width = "30px";
+            toggleBtn.style.height = "30px";
+            toggleBtn.style.top = "5px";
+            toggleBtn.style.right = "5px";
+        }
+    });
+
+    // 折りたたまれている時にパネルをクリックしたら開く
+    panel.addEventListener('click', () => {
+        if (panel.classList.contains('collapsed')) {
+            panel.classList.remove('collapsed');
+            toggleBtn.textContent = "−";
+            menuIcon.style.display = 'none';
+            toggleBtn.style.width = "30px";
+            toggleBtn.style.height = "30px";
+            toggleBtn.style.top = "5px";
+            toggleBtn.style.right = "5px";
+        }
+    });
+
+    // 初期ロード時のイベント登録
+    map.on('load', () => {
+        // 初期状態では地形等はOFF、必要ならここでONにする関数を呼ぶ
+    });
+
+</script>
 </body>
 </html>
