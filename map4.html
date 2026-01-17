@@ -24,8 +24,15 @@ const map =  new maplibregl.Map({
     container: 'map',
     <!-- style: 'https://tile.openstreetmap.jp/styles/osm-bright-ja/style.json', -->
     <!-- style: 'https://gsi-cyberjapan.github.io/gsivectortile-mapbox-gl-js/std.json', -->
-    style: 'https://gsi-cyberjapan.github.io/gsivectortile-mapbox-gl-js/pale.json',
+    <!-- style: 'https://gsi-cyberjapan.github.io/gsivectortile-mapbox-gl-js/pale.json', -->
     <!-- style: 'https://gsi-cyberjapan.github.io/gsivectortile-mapbox-gl-js/blank.json', -->
+    style: 'https://gsi-cyberjapan.github.io/optimal_bvmap/style/std.json',
+  hash: true,
+  maxZoom: 17.99,
+  minZoom: 4,
+  localIdeographFontFamily: false
+//  localIdeographFontFamily: ['MS Gothic', 'Hiragino Kaku Gothic Pro', 'sans-serif']
+
     center: [139.875, 39.077],
     zoom: 15,
     pitch: 0
