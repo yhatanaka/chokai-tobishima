@@ -1,200 +1,498 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>MapLibre GSI / OSM 切替デモ</title>
-<link href="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css" rel="stylesheet" />
-<style>
-  body,html,#map{height:100%;margin:0;padding:0}
-  #map{position:relative}
-  .panel{position:absolute;top:8px;right:8px;background:#fff;border-radius:6px;padding:8px;box-shadow:0 1px 6px rgba(0,0,0,.2);font-size:13px;z-index:2}
-  .panel .fold{cursor:pointer;color:#0078d4;margin-bottom:6px}
-  .controls{display:block}
-  .row{margin:6px 0}
-  label{display:block;font-size:12px;margin-bottom:4px}
-  input[type=range]{width:180px}
-  .scale{position:absolute;left:8px;bottom:8px;background:#fff;padding:4px;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,.2);font-size:12px}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MapLibre: GSI/OSM basemap switch + hillshade + terrain</title>
+
+  <!-- MapLibre (latest) -->
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css" />
+  <script src="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js"></script>
+
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { position: absolute; inset: 0; }
+
+    /* Small, collapsible control panel */
+    .panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      font: 12px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+      color: #111;
+      max-width: 320px;
+    }
+    details.ctrl {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid rgba(0,0,0,0.15);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    }
+    details.ctrl > summary {
+      cursor: pointer;
+      padding: 8px 10px;
+      user-select: none;
+      list-style: none;
+      font-weight: 600;
+    }
+    details.ctrl > summary::-webkit-details-marker { display: none; }
+    .ctrl-body { padding: 10px; display: grid; gap: 10px; }
+
+    .row { display: grid; gap: 6px; }
+    .row label { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    select, input[type="range"] { width: 100%; }
+    .mini {
+      font-size: 11px;
+      color: #444;
+    }
+    .inline {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .inline > * { flex: 1; }
+    .value-badge {
+      display: inline-block;
+      min-width: 44px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      color: #222;
+    }
+
+    /* Make MapLibre attribution a bit tighter */
+    .maplibregl-ctrl-attrib { font-size: 11px; }
+  </style>
 </head>
 <body>
-<div id="map"></div>
+  <div id="map"></div>
 
-<div class="panel" id="panel">
-  <div class="fold" id="fold">▲ レイヤ操作</div>
-  <div class="controls" id="controls">
-    <div class="row"><strong>ベースマップ</strong>
-      <select id="basemap">
-        <option value="gsi_std">国土地理院 標準地図</option>
-        <option value="gsi_pale">国土地理院 淡色地図</option>
-        <option value="gsi_photo">国土地理院 写真地図</option>
-        <option value="gsi_optvec">国土地理院 最適化ベクトル（簡易）</option>
-        <option value="osm_raster">OpenStreetMap ラスタ</option>
-        <option value="osm_bright">OSM Bright JA（ラスタ）</option>
-      </select>
-    </div>
+  <div class="panel">
+    <details class="ctrl" open>
+      <summary>地図/レイヤ（折りたたみ可）</summary>
+      <div class="ctrl-body">
 
-    <div class="row"><strong>陰影起伏図</strong>
-      <label><input type="checkbox" id="hill_on" checked> 表示</label>
-      <label>不透明度 <input id="hill_opacity" type="range" min="0" max="1" step="0.01" value="0.6"></label>
-      <label>合成モード
-        <select id="hill_blend">
-          <option value="normal">通常</option>
-          <option value="multiply">乗算</option>
-        </select>
-      </label>
-    </div>
+        <div class="row">
+          <div class="mini">ベースマップ</div>
+          <select id="basemapSelect">
+            <option value="gsi_opt_vt">国土地理院 最適化ベクトルタイル</option>
+            <option value="gsi_std">国土地理院 標準地図</option>
+            <option value="gsi_pale">国土地理院 淡色地図</option>
+            <option value="gsi_photo">国土地理院 写真地図（seamlessphoto）</option>
+            <option value="osm_raster">OpenStreetMap ラスタタイル</option>
+            <option value="osm_vt_bright_ja">OpenStreetMap ベクタタイル（osm-bright-ja）</option>
+          </select>
+        </div>
 
-    <div class="row"><strong>地形（terrain）</strong>
-      <label><input type="checkbox" id="terrain_on"> 3D地形を有効</label>
-      <label>強調倍率 <input id="exaggeration" type="range" min="0.1" max="2" step="0.01" value="1"></label>
-    </div>
+        <div class="row">
+          <div class="mini">陰影起伏図（オーバーレイ）</div>
+          <label class="inline">
+            <span>
+              <input id="hillshadeEnabled" type="checkbox" checked />
+              有効
+            </span>
+            <span class="mini" style="text-align:right;">
+              ブレンド:
+              <select id="hillshadeBlend" style="width:auto;">
+                <option value="normal">通常</option>
+                <option value="multiply">乗算</option>
+              </select>
+            </span>
+          </label>
+
+          <label>
+            <span>透過率</span>
+            <span class="value-badge"><span id="hillshadeOpacityVal">0.55</span></span>
+          </label>
+          <input id="hillshadeOpacity" type="range" min="0" max="1" step="0.01" value="0.55" />
+          <div class="mini">※ 陰影起伏図: hillshademap</div>
+        </div>
+
+        <div class="row">
+          <div class="mini">地形（terrain: GSI DEM → Terrain-RGB 変換）</div>
+          <label class="inline">
+            <span>
+              <input id="terrainEnabled" type="checkbox" />
+              立体化を有効
+            </span>
+            <span class="mini" style="text-align:right;">
+              ピッチ: <button id="pitchBtn" type="button" style="width:auto;">45°</button>
+            </span>
+          </label>
+
+          <label>
+            <span>誇張（0.1〜2.0）</span>
+            <span class="value-badge"><span id="terrainExagVal">1.00</span></span>
+          </label>
+          <input id="terrainExag" type="range" min="0.1" max="2" step="0.01" value="1.0" />
+          <div class="mini">
+            DEMは `dem_png` を使用し、クライアント側で Mapbox Terrain-RGB 形式へ変換します。
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="mini">初期中心: [139.875, 39.077]</div>
+        </div>
+
+      </div>
+    </details>
   </div>
-</div>
 
-<div class="scale" id="scale"></div>
+  <script>
+    // ------------------------------
+    // Basemap definitions
+    // ------------------------------
+    // Raster tiles (GSI / OSM)
+    const TILES = {
+      gsi_std:   "https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png",
+      gsi_pale:  "https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png",
+      gsi_photo: "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",
+      osm_raster:"https://tile.openstreetmap.org/{z}/{x}/{y}.png",
 
-<script src="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js"></script>
-<script>
-const map = new maplibregl.Map({
-  container: 'map',
-  style: {version:8,sources:{},layers:[]},
-  center: [139.875,39.077],
-  zoom: 10,
-  pitch: 0,
-  bearing: 0,
-  maxPitch:85
-});
+      // Hillshade overlay (GSI)
+      gsi_hillshade: "https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png",
 
-// スケール表示
-const scaleEl = document.getElementById('scale');
-const scale = new maplibregl.ScaleControl({maxWidth:200,unit:'metric'});
-map.addControl(scale,'bottom-left');
+      // DEM PNG (GSI)
+      gsi_dem_png: "https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png"
+    };
 
-// ベースマップ用ソース／レイヤを作る（ラスタ中心）
-function addBaseLayers(){
-  // GSI 標準
-  map.addSource('gsi_std_src',{type:'raster',tiles:['https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png'],tileSize:256,attribution:'国土地理院'});
-  map.addLayer({id:'gsi_std',type:'raster',source:'gsi_std_src',layout:{visibility:'visible'}});
-  // 淡色
-  map.addSource('gsi_pale_src',{type:'raster',tiles:['https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png'],tileSize:256});
-  map.addLayer({id:'gsi_pale',type:'raster',source:'gsi_pale_src',layout:{visibility:'none'}});
-  // 写真
-  map.addSource('gsi_photo_src',{type:'raster',tiles:['https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg'],tileSize:256});
-  map.addLayer({id:'gsi_photo',type:'raster',source:'gsi_photo_src',layout:{visibility:'none'}});
-  // OSM ラスタ
-  map.addSource('osm_raster_src',{type:'raster',tiles:['https://tile.openstreetmap.jp/{z}/{x}/{y}.png'],tileSize:256,attribution:'© OpenStreetMap contributors'});
-  map.addLayer({id:'osm_raster',type:'raster',source:'osm_raster_src',layout:{visibility:'none'}});
-  // OSM Bright JA (ラスタ版)
-  map.addSource('osm_bright_src',{type:'raster',tiles:['https://tile.openstreetmap.jp/styles/osm-bright-ja/{z}/{x}/{y}.png'],tileSize:256});
-  map.addLayer({id:'osm_bright',type:'raster',source:'osm_bright_src',layout:{visibility:'none'}});
-  // 国土地理院 最適化ベクトルタイル（簡易表示：ベクターソース＋簡易レイヤ）
-  map.addSource('gsi_optvec_src',{type:'vector',tiles:['https://cyberjapandata.gsi.go.jp/xyz/optimal_bvmap-v1/{z}/{x}/{y}.pbf'],minzoom:4,maxzoom:16});
-  // 簡易に「land」相当を塗る（タイルの実レイヤ名は変わる可能性あり）
-  map.addLayer({id:'gsi_optvec_land',type:'fill',source:'gsi_optvec_src','source-layer':'land',paint:{'fill-color':'#efe8d6'},layout:{visibility:'none'}});
-  map.addLayer({id:'gsi_optvec_road',type:'line',source:'gsi_optvec_src','source-layer':'road',paint:{'line-color':'#c66','line-width':1},layout:{visibility:'none'}});
-}
-map.on('load',()=>{
-  addBaseLayers();
+    // Vector styles
+    const VECTOR_STYLES = {
+      // OSM vector style (user-specified)
+      osm_vt_bright_ja: "https://tile.openstreetmap.jp/styles/maptiler-basic-ja/style.json",
 
-  // 陰影起伏図レイヤ（上に重ねる）
-  map.addSource('gsi_hill',{type:'raster',tiles:['https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png'],tileSize:256});
-  map.addLayer({id:'gsi_hill_layer',type:'raster',source:'gsi_hill',paint:{'raster-opacity':0.6},layout:{visibility:'visible'}});
-});
+      // GSI optimized vector tile style:
+      // NOTE: This URL follows the public demo repository structure.
+      // If it ever changes, update this single URL.
+      gsi_opt_vt: "https://gsi-cyberjapan.github.io/optimal_bvmap/style/std.json"
+    };
 
-// UI 操作
-document.getElementById('basemap').addEventListener('change',e=>{
-  const v=e.target.value;
-  const ids=['gsi_std','gsi_pale','gsi_photo','gsi_optvec_land','gsi_optvec_road','osm_raster','osm_bright'];
-  ids.forEach(id=>{ if(map.getLayer(id)) map.setLayoutProperty(id,'visibility','none'); });
-  if(v==='gsi_optvec'){ ['gsi_optvec_land','gsi_optvec_road'].forEach(id=>map.setLayoutProperty(id,'visibility','visible')); }
-  else map.setLayoutProperty(v,'visibility','visible');
-});
-
-// 陰影コントロール
-document.getElementById('hill_opacity').addEventListener('input',e=>{
-  const v=parseFloat(e.target.value); if(map.getLayer('gsi_hill_layer')) map.setPaintProperty('gsi_hill_layer','raster-opacity',v);
-});
-document.getElementById('hill_on').addEventListener('change',e=>{
-  map.setLayoutProperty('gsi_hill_layer','visibility', e.target.checked ? 'visible' : 'none');
-});
-document.getElementById('hill_blend').addEventListener('change',e=>{
-  const mode=e.target.value;
-  // MapLibre は直接 blend mode をレイヤで指定できないため、canvas フィルタで代替
-  const canvas = map.getCanvas();
-  canvas.style.mixBlendMode = (mode==='multiply') ? 'multiply' : 'normal';
-});
-
-// 折りたたみ
-document.getElementById('fold').addEventListener('click',()=>{
-  const c=document.getElementById('controls');
-  c.style.display = c.style.display==='none' ? 'block' : 'none';
-  document.getElementById('fold').textContent = c.style.display==='none' ? '▼ レイヤ操作' : '▲ レイヤ操作';
-});
-
-// --- DEM を MapLibre terrain 用に変換するプロトコル（国土地理院 DEM PNG -> TerrainRGB） ---
-// 国土地理院の DEM PNG エンコード仕様に合わせて変換する（クライアント変換）
-// 参考: 国土地理院 標高タイル仕様、MapLibre DEM 変換手法（addProtocol）を利用。
-maplibregl.addProtocol('gsidem', (params, callback) => {
-  const url = params.url.replace('gsidem://','');
-  const img = new Image(); img.crossOrigin = '';
-  img.onload = () => {
-    const w=img.width, h=img.height;
-    const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
-    const ctx=canvas.getContext('2d'); ctx.drawImage(img,0,0);
-    const id=ctx.getImageData(0,0,w,h);
-    const d=id.data;
-    // GSI DEM -> height (m): h = (R*256*256 + G*256 + B) * 0.01 ; special (128,0,0) = no-data ; if R>=128 subtract 2^24
-    // TerrainRGB encoding: height' = -10000 + value*0.1  => we need to map GSI height to TerrainRGB bytes
-    for(let i=0;i<d.length;i+=4){
-      const R=d[i], G=d[i+1], B=d[i+2];
-      if(R===128 && G===0 && B===0){
-        // no-data -> set to 0 height (encode as terrain value for -10000)
-        d[i]=0; d[i+1]=0; d[i+2]=0;
-        continue;
-      }
-      let x = R*65536 + G*256 + B;
-      if(R>=128) x = x - 16777216;
-      let hgt = x * 0.01; // meters (GSI)
-      // convert to TerrainRGB value: terrainHeight = -10000 + ((R_t*256*256 + G_t*256 + B_t) * 0.1)
-      // so we need value = (hgt + 10000) / 0.1
-      let val = Math.round((hgt + 10000) / 0.1);
-      if(val<0) val=0; if(val>16777215) val=16777215;
-      const Rt = (val >> 16) & 255;
-      const Gt = (val >> 8) & 255;
-      const Bt = val & 255;
-      d[i]=Rt; d[i+1]=Gt; d[i+2]=Bt;
+    function makeRasterStyle(styleName, tileUrl, attributionHtml) {
+      return {
+        version: 8,
+        glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+        sources: {
+          baseraster: {
+            type: "raster",
+            tiles: [tileUrl],
+            tileSize: 256,
+            attribution: attributionHtml || ""
+          }
+        },
+        layers: [
+          {
+            id: "baseraster-layer",
+            type: "raster",
+            source: "baseraster"
+          }
+        ]
+      };
     }
-    ctx.putImageData(id,0,0);
-    canvas.toBlob(blob => {
-      blob.arrayBuffer().then(buf => callback(null, buf, null, null));
-    }, 'image/png');
-  };
-  img.onerror = () => callback(new Error('DEM load error'));
-  img.src = url;
-  return {cancel:()=>{}};
-});
 
-// terrain ソースを追加（gsidem プロトコルを使う）
-function enableTerrain(exag){
-  if(map.getSource('gsi_dem')) return;
-  map.addSource('gsi_dem',{type:'raster-dem',tiles:['gsidem://https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png'],tileSize:256,encoding:'mapbox'});
-  map.setTerrain({source:'gsi_dem',exaggeration:exag});
-}
-function disableTerrain(){
-  try{ map.setTerrain(null); if(map.getSource('gsi_dem')) map.removeSource('gsi_dem'); }catch(e){}
-}
+    const RASTER_STYLES = {
+      gsi_std: makeRasterStyle(
+        "gsi_std",
+        TILES.gsi_std,
+        '国土地理院'
+      ),
+      gsi_pale: makeRasterStyle(
+        "gsi_pale",
+        TILES.gsi_pale,
+        '国土地理院'
+      ),
+      gsi_photo: makeRasterStyle(
+        "gsi_photo",
+        TILES.gsi_photo,
+        '国土地理院'
+      ),
+      osm_raster: makeRasterStyle(
+        "osm_raster",
+        TILES.osm_raster,
+        '&copy; OpenStreetMap contributors'
+      )
+    };
 
-// terrain UI
-document.getElementById('terrain_on').addEventListener('change',e=>{
-  const on=e.target.checked;
-  if(on) enableTerrain(parseFloat(document.getElementById('exaggeration').value));
-  else disableTerrain();
-});
-document.getElementById('exaggeration').addEventListener('input',e=>{
-  const v=parseFloat(e.target.value);
-  if(map.getTerrain()) map.setTerrain({source:'gsi_dem',exaggeration:v});
-});
-</script>
+    // ------------------------------
+    // State
+    // ------------------------------
+    const state = {
+      basemap: "gsi_opt_vt",
+
+      hillshade: {
+        enabled: true,
+        opacity: 0.55,
+        blend: "normal" // "normal" | "multiply"
+      },
+
+      terrain: {
+        enabled: false,
+        exaggeration: 1.0
+      }
+    };
+
+    // ------------------------------
+    // Map init
+    // ------------------------------
+    const map = new maplibregl.Map({
+      container: "map",
+      style: VECTOR_STYLES[state.basemap],
+      center: [139.875, 39.077],
+      zoom: 8.5,
+      pitch: 0,
+      bearing: 0,
+      maxPitch: 85
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+    map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-left");
+
+    // ------------------------------
+    // DEM: GSI dem_png -> Mapbox Terrain-RGB conversion via addProtocol
+    // ------------------------------
+    // GSI DEM PNG spec (summary):
+    // x = 2^16*R + 2^8*G + B
+    // u=0.01m; if x < 2^23 => h = x*u; if x==2^23 => NA; if x > 2^23 => h=(x-2^24)*u
+    // NA pixel is (128,0,0)
+    //
+    // Terrain-RGB encoding (Mapbox):
+    // enc = (height_m + 10000) * 10
+    // R=floor(enc/65536), G=floor((enc%65536)/256), B=enc%256
+    //
+    // MapLibre v4 addProtocol is Promise-based.
+    maplibregl.addProtocol("gsidem", async (params, abortController) => {
+      const srcUrl = params.url.replace("gsidem://", "");
+
+      const res = await fetch(srcUrl, { signal: abortController.signal, mode: "cors" });
+      if (!res.ok) throw new Error("DEM tile fetch failed: " + res.status);
+
+      const blob = await res.blob();
+      const bmp = await createImageBitmap(blob);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = bmp.width;
+      canvas.height = bmp.height;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(bmp, 0, 0);
+
+      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const d = img.data;
+
+      // Convert each pixel in-place to Terrain-RGB
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i + 0];
+        const g = d[i + 1];
+        const b = d[i + 2];
+
+        let heightM = 0;
+        const isNA = (r === 128 && g === 0 && b === 0);
+
+        if (isNA) {
+          // Set sea-level-ish for missing data (avoid spikes)
+          heightM = 0;
+        } else {
+          const x = (r << 16) + (g << 8) + b; // 0..16777215
+          const TWO_23 = 1 << 23; // 8388608
+          const TWO_24 = 1 << 24; // 16777216
+          const u = 0.01;
+
+          if (x === TWO_23) {
+            heightM = 0; // NA
+          } else if (x < TWO_23) {
+            heightM = x * u;
+          } else {
+            heightM = (x - TWO_24) * u; // negative
+          }
+        }
+
+        // Encode to Terrain-RGB (Mapbox)
+        let enc = Math.round((heightM + 10000) * 10); // 0.1m steps
+        if (enc < 0) enc = 0;
+        if (enc > 16777215) enc = 16777215;
+
+        d[i + 0] = (enc >> 16) & 255;
+        d[i + 1] = (enc >> 8) & 255;
+        d[i + 2] = enc & 255;
+        // alpha kept as-is
+      }
+
+      ctx.putImageData(img, 0, 0);
+
+      const outBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+      const arrayBuffer = await outBlob.arrayBuffer();
+      return { data: arrayBuffer };
+    });
+
+    // ------------------------------
+    // Overlay / terrain install helpers
+    // ------------------------------
+    const HILLSHADE_SOURCE_ID = "gsi-hillshade";
+    const HILLSHADE_LAYER_ID  = "gsi-hillshade-layer";
+
+    const DEM_SOURCE_ID = "gsi-dem-rgb";
+
+    function ensureHillshade() {
+      if (!map.getSource(HILLSHADE_SOURCE_ID)) {
+        map.addSource(HILLSHADE_SOURCE_ID, {
+          type: "raster",
+          tiles: [TILES.gsi_hillshade],
+          tileSize: 256,
+          attribution: "国土地理院"
+        });
+      }
+      if (!map.getLayer(HILLSHADE_LAYER_ID)) {
+        // Put it near the top so it works as an overlay regardless of style.
+        // If some styles use "sky"/"symbol" etc, this still draws above most layers.
+        const beforeId = findTopmostSymbolLayerId() || undefined;
+
+        map.addLayer({
+          id: HILLSHADE_LAYER_ID,
+          type: "raster",
+          source: HILLSHADE_SOURCE_ID,
+          paint: {
+            "raster-opacity": state.hillshade.opacity,
+            "raster-blend-mode": state.hillshade.blend
+          }
+        }, beforeId);
+      }
+
+      map.setLayoutProperty(
+        HILLSHADE_LAYER_ID,
+        "visibility",
+        state.hillshade.enabled ? "visible" : "none"
+      );
+      map.setPaintProperty(HILLSHADE_LAYER_ID, "raster-opacity", state.hillshade.opacity);
+      map.setPaintProperty(HILLSHADE_LAYER_ID, "raster-blend-mode", state.hillshade.blend);
+    }
+
+    function ensureTerrain() {
+      if (!map.getSource(DEM_SOURCE_ID)) {
+        map.addSource(DEM_SOURCE_ID, {
+          type: "raster-dem",
+          tiles: ["gsidem://" + TILES.gsi_dem_png],
+          tileSize: 256,
+          maxzoom: 14,
+          attribution: "国土地理院"
+        });
+      }
+
+      if (state.terrain.enabled) {
+        map.setTerrain({ source: DEM_SOURCE_ID, exaggeration: state.terrain.exaggeration });
+      } else {
+        map.setTerrain(null);
+      }
+    }
+
+    function findTopmostSymbolLayerId() {
+      const layers = map.getStyle()?.layers || [];
+      // Find first symbol layer from top (reverse) and insert before it,
+      // so the hillshade doesn't cover labels.
+      for (let i = layers.length - 1; i >= 0; i--) {
+        if (layers[i].type === "symbol") return layers[i].id;
+      }
+      return null;
+    }
+
+    function applyAll() {
+      ensureTerrain();
+      ensureHillshade();
+    }
+
+    map.on("style.load", () => {
+      // After any setStyle, re-apply overlays/terrain
+      applyAll();
+    });
+
+    map.on("load", () => {
+      applyAll();
+      wireUI();
+    });
+
+    // ------------------------------
+    // UI wiring
+    // ------------------------------
+    function wireUI() {
+      const basemapSelect = document.getElementById("basemapSelect");
+      const hillshadeEnabled = document.getElementById("hillshadeEnabled");
+      const hillshadeOpacity = document.getElementById("hillshadeOpacity");
+      const hillshadeOpacityVal = document.getElementById("hillshadeOpacityVal");
+      const hillshadeBlend = document.getElementById("hillshadeBlend");
+
+      const terrainEnabled = document.getElementById("terrainEnabled");
+      const terrainExag = document.getElementById("terrainExag");
+      const terrainExagVal = document.getElementById("terrainExagVal");
+      const pitchBtn = document.getElementById("pitchBtn");
+
+      // Init UI from state
+      basemapSelect.value = state.basemap;
+      hillshadeEnabled.checked = state.hillshade.enabled;
+      hillshadeOpacity.value = state.hillshade.opacity;
+      hillshadeOpacityVal.textContent = state.hillshade.opacity.toFixed(2);
+      hillshadeBlend.value = state.hillshade.blend;
+
+      terrainEnabled.checked = state.terrain.enabled;
+      terrainExag.value = state.terrain.exaggeration;
+      terrainExagVal.textContent = state.terrain.exaggeration.toFixed(2);
+
+      basemapSelect.addEventListener("change", () => {
+        state.basemap = basemapSelect.value;
+
+        if (RASTER_STYLES[state.basemap]) {
+          map.setStyle(RASTER_STYLES[state.basemap]);
+        } else {
+          map.setStyle(VECTOR_STYLES[state.basemap]);
+        }
+        // overlays/terrain will be re-applied on style.load
+      });
+
+      hillshadeEnabled.addEventListener("change", () => {
+        state.hillshade.enabled = hillshadeEnabled.checked;
+        if (map.getLayer(HILLSHADE_LAYER_ID)) {
+          map.setLayoutProperty(HILLSHADE_LAYER_ID, "visibility", state.hillshade.enabled ? "visible" : "none");
+        } else {
+          applyAll();
+        }
+      });
+
+      hillshadeOpacity.addEventListener("input", () => {
+        state.hillshade.opacity = Number(hillshadeOpacity.value);
+        hillshadeOpacityVal.textContent = state.hillshade.opacity.toFixed(2);
+        if (map.getLayer(HILLSHADE_LAYER_ID)) {
+          map.setPaintProperty(HILLSHADE_LAYER_ID, "raster-opacity", state.hillshade.opacity);
+        }
+      });
+
+      hillshadeBlend.addEventListener("change", () => {
+        state.hillshade.blend = hillshadeBlend.value;
+        if (map.getLayer(HILLSHADE_LAYER_ID)) {
+          map.setPaintProperty(HILLSHADE_LAYER_ID, "raster-blend-mode", state.hillshade.blend);
+        }
+      });
+
+      terrainEnabled.addEventListener("change", () => {
+        state.terrain.enabled = terrainEnabled.checked;
+        ensureTerrain();
+        // Optional: if enabling, raise pitch a bit for effect
+        if (state.terrain.enabled && map.getPitch() < 20) map.easeTo({ pitch: 45, duration: 500 });
+        if (!state.terrain.enabled) map.easeTo({ pitch: 0, duration: 300 });
+      });
+
+      terrainExag.addEventListener("input", () => {
+        state.terrain.exaggeration = Number(terrainExag.value);
+        terrainExagVal.textContent = state.terrain.exaggeration.toFixed(2);
+        if (state.terrain.enabled) {
+          map.setTerrain({ source: DEM_SOURCE_ID, exaggeration: state.terrain.exaggeration });
+        }
+      });
+
+      pitchBtn.addEventListener("click", () => {
+        const p = map.getPitch();
+        const next = (p < 1) ? 45 : (p < 50 ? 70 : 0);
+        map.easeTo({ pitch: next, duration: 450 });
+        pitchBtn.textContent = next + "°";
+      });
+    }
+  </script>
 </body>
 </html>
