@@ -41,7 +41,7 @@ body { margin:0; padding:0; }
     <div id="map"></div>
 <div id="menu">
 	<ul>
-		<li><input id="style" type="checkbox" value="std"><label for="std">サンプルスタイル（標準地図風）適用</label></li>
+		<li><input id="style" type="checkbox" value="std"><label for="std">標準地図風</label></li>
 	</ul>
 </div>
 
@@ -53,7 +53,7 @@ var map = new maplibregl.Map({
   container: 'map',
   hash: true,
   <!-- style: 'https://raw.githubusercontent.com/gsi-cyberjapan/optimal_bvmap/52ba56f645334c979998b730477b2072c7418b94/style/std.json', -->
-  style: 'https://gsi-cyberjapan.github.io/optimal_bvmap/style/std.json',
+  style: 'https://gsi-cyberjapan.github.io/optimal_bvmap/style/pale.json',
   center: [139.875, 39.077], 
   zoom: 14,
   maxZoom: 17,
@@ -67,7 +67,7 @@ map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
 let check1 = document.getElementById('style');
 
 document.getElementById('style').addEventListener('click', () => {
-  check1.checked ? map.setStyle('./style/std.json') : map.setStyle('./style/skeleton.json');
+  check1.checked ? map.setStyle('https://gsi-cyberjapan.github.io/optimal_bvmap/style/std.json') : map.setStyle('https://gsi-cyberjapan.github.io/optimal_bvmap/style/pale.json');
 });
 
 
