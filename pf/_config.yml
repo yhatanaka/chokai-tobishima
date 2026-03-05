@@ -1,0 +1,16 @@
+title: "My Gallery"
+description: "Photo Gallery"
+baseurl: ""          # リポジトリ名を入れる場合: "/repo-name"
+url: ""              # 例: "https://username.github.io"
+
+theme: null
+plugins:
+  - jekyll-seo-tag
+
+markdown: kramdown
+permalink: pretty
+
+# ギャラリーの設定
+gallery:
+  columns: 3         # 列数 (2, 3, 4)
+  lightbox: true     # クリックで拡大表示

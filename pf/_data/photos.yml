@@ -1,0 +1,28 @@
+# 写真を追加するにはここを編集してください
+# src: photos/ フォルダ内の画像ファイル名、またはURL
+# caption: 写真の説明文（省略可）
+# category: カテゴリ名（省略可）
+
+- src: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800"
+  caption: "山の夜明け"
+  category: "自然"
+
+- src: "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=800"
+  caption: "霧の森"
+  category: "自然"
+
+- src: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800"
+  caption: "ポートレート"
+  category: "人物"
+
+- src: "https://images.unsplash.com/photo-1519125323398-675f0ddb6308?w=800"
+  caption: "夕暮れの海"
+  category: "自然"
+
+- src: "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800"
+  caption: "旅の記録"
+  category: "旅行"
+
+- src: "https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?w=800"
+  caption: "街並み"
+  category: "都市"

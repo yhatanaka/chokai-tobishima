@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% if page.title %}{{ page.title }} | {% endif %}{{ site.title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Zen+Kaku+Gothic+New:wght@300;400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="{{ '/' | relative_url }}" class="site-title">{{ site.title }}</a>
+      {% if site.description %}
+      <p class="site-desc">{{ site.description }}</p>
+      {% endif %}
+    </div>
+  </header>
+
+  <main class="main-content">
+    {{ content }}
+  </main>
+
+  <footer class="site-footer">
+    <p>© {{ 'now' | date: "%Y" }} {{ site.title }}</p>
+  </footer>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+    <button class="lb-close" onclick="closeLightbox()">✕</button>
+    <button class="lb-prev" onclick="event.stopPropagation(); changePhoto(-1)">&#8592;</button>
+    <button class="lb-next" onclick="event.stopPropagation(); changePhoto(1)">&#8594;</button>
+    <div class="lb-content" onclick="event.stopPropagation()">
+      <img class="lb-img" id="lb-img" src="" alt="">
+      <p class="lb-caption" id="lb-caption"></p>
+    </div>
+  </div>
+
+  <script src="{{ '/assets/js/gallery.js' | relative_url }}"></script>
+</body>
+</html>
