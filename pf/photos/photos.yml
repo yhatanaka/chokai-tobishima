@@ -1,3 +1,3 @@
-- src: "my-photo.jpg"       # photos/ フォルダ内のファイル名
+- src: "01_080423__DSC0756.jpg"       # photos/ フォルダ内のファイル名
   caption: "説明文"          # 省略可
   category: "旅行"           # 省略可（フィルター機能用）
